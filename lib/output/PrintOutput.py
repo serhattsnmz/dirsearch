@@ -99,6 +99,9 @@ class PrintOutput(object):
             if status == 200:
                 message = Fore.GREEN + message + Style.RESET_ALL
 
+            elif status == 400:
+                message = Fore.MAGENTA + message + Style.RESET_ALL
+
             elif status == 401:
                 message = Fore.YELLOW + message + Style.RESET_ALL
                 
@@ -116,7 +119,7 @@ class PrintOutput(object):
                 message += "  ->  {0}".format(response.headers["location"])
                 
             if addedToQueue:
-                message += "   (Added to the Queue)"
+                message += "     (Added to queue)"
 
             self.newLine(message)
 
@@ -150,7 +153,7 @@ class PrintOutput(object):
         pass
 
 
-    def target(self, target):
+    def setTarget(self, target):
         self.target = target
 
     def outputFile(self, target):

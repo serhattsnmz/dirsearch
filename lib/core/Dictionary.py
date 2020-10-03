@@ -18,7 +18,6 @@
 
 import re
 import threading
-
 import urllib.parse
 
 from lib.utils.FileUtils import File
@@ -27,7 +26,20 @@ from lib.utils.FileUtils import File
 class Dictionary(object):
 
 
-    def __init__(self, paths, extensions, suffixes=None, prefixes=None, lowercase=False, uppercase=False, forcedExtensions=False, noDotExtensions=False, excludeExtensions):
+    def __init__(
+        self,
+        paths,
+        extensions,
+        suffixes=None,
+        prefixes=None,
+        lowercase=False,
+        uppercase=False,
+        capitalization=False,
+        forcedExtensions=False,
+        noDotExtensions=False,
+        excludeExtensions=[],
+    ):
+        
         self.entries = []
         self.currentIndex = 0
         self.condition = threading.Lock()
@@ -40,6 +52,7 @@ class Dictionary(object):
         self._excludeExtensions = excludeExtensions
         self.lowercase = lowercase
         self.uppercase = uppercase
+        self.capitalization = capitalization
         self.dictionaryFiles = [File(path) for path in self.paths]
         self.generate()
 
@@ -83,7 +96,10 @@ class Dictionary(object):
     def generate(self):
         reext = re.compile('\%ext\%', re.IGNORECASE).sub
         reextdot = re.compile('\.\%ext\%', re.IGNORECASE).sub
+        exclude = re.findall
+        custom = []
         result = []
+
 
         # Enable to use multiple dictionaries at once
         for dictFile in self.dictionaryFiles:
@@ -106,7 +122,7 @@ class Dictionary(object):
                     matched = False
                     
                     for excludeExtension in self._excludeExtensions:
-                        if line.endswith("." + excludeExtension):
+                        if len(exclude("." + excludeExtension, line)):
                             matched = True
                             break
                             
@@ -121,7 +137,7 @@ class Dictionary(object):
 
                         else:
                             newline = line
-                            
+
                         newline = reext(extension, newline)
 
                         quote = self.quote(newline)
@@ -146,20 +162,23 @@ class Dictionary(object):
                 # Append line unmodified.
                 else:
                     result.append(self.quote(line))
-                    
+
+
         # Adding prefixes for finding private pages etc
         if self._prefixes:
             for res in list(dict.fromkeys(result)):
                 for pref in self._prefixes:
                     if not res.startswith(pref): 
-                        result.append(pref + res)
+                        custom.append(pref + res)
 
         # Adding suffixes for finding backups etc
         if self._suffixes:
             for res in list(dict.fromkeys(result)):
-                if not res.rstrip().endswith("/"):
+                if not res.rstrip().endswith("/") and not res.rstrip().endswith(suff):
                     for suff in self._suffixes:
-                        result.append(res + suff)
+                        custom.append(res + suff)
+           
+        result = custom if custom else result
 
 
         if self.lowercase:
@@ -167,10 +186,14 @@ class Dictionary(object):
             
         elif self.uppercase:
             self.entries = list(dict.fromkeys(map(lambda l: l.upper(), result)))
+            
+        elif self.capitalization:
+            self.entries = list(dict.fromkeys(map(lambda l: l.capitalize(), result)))
 
         else:
             self.entries = list(dict.fromkeys(result))
 
+        del custom
         del result
 
     def regenerate(self):

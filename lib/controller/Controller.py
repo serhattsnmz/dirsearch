@@ -37,8 +37,8 @@ class SkipTargetInterrupt(Exception):
 
 
 MAYOR_VERSION = 0
-MINOR_VERSION = 3
-REVISION = 9
+MINOR_VERSION = 4
+REVISION = 0
 VERSION = {
     "MAYOR_VERSION": MAYOR_VERSION,
     "MINOR_VERSION": MINOR_VERSION,
@@ -64,8 +64,8 @@ class Controller(object):
 
         self.recursive_level_max = self.arguments.recursive_level_max
 
-        if self.arguments.httpmethod.lower() not in ["get", "head", "post", "put", "patch", "options", "delete", "trace"]:
-            self.output.error("Invalid http method!")
+        if self.arguments.httpmethod.lower() not in ["get", "head", "post", "put", "patch", "options", "delete", "trace", "debug"]:
+            self.output.error("Invalid HTTP method!")
             exit(1)
 
         self.httpmethod = self.arguments.httpmethod.lower()
@@ -113,14 +113,14 @@ class Controller(object):
         self.maximumResponseSize = self.arguments.maximumResponseSize
         self.directories = Queue()
         self.excludeSubdirs = (
-            arguments.excludeSubdirs if arguments.excludeSubdirs is not None else []
+            arguments.excludeSubdirs if arguments.excludeSubdirs else []
         )
         self.output.header(program_banner)
 
-        self.dictionary = Dictionary(self.arguments.wordlist, self.arguments.extensions, self.arguments.suffixes, 
-                                     self.arguments.prefixes, self.arguments.lowercase, self.arguments.uppercase, 
-                                     self.arguments.forceExtensions, self.arguments.noDotExtensions, 
-                                     self.arguments.excludeExtensions)
+        self.dictionary = Dictionary(self.arguments.wordlist, self.arguments.extensions, self.arguments.suffixes,
+                                     self.arguments.prefixes, self.arguments.lowercase, self.arguments.uppercase,
+                                     self.arguments.capitalization, self.arguments.forceExtensions,
+                                     self.arguments.noDotExtensions, self.arguments.excludeExtensions)
 
         self.printConfig()
         self.errorLog = None
@@ -148,7 +148,7 @@ class Controller(object):
                     gc.collect()
                     self.reportManager = ReportManager()
                     self.currentUrl = url
-                    self.output.target(self.currentUrl)
+                    self.output.setTarget(self.currentUrl)
 
                     try:
                         self.requester = Requester(
@@ -272,6 +272,10 @@ class Controller(object):
             blacklists[status] = []
 
             for line in FileUtils.getLines(blacklistFileName):
+                # The same with Dictionary.py
+                if line.startswith("/"):
+                    line = line[1:]
+
                 # Skip comments
                 if line.lstrip().startswith("#"):
                     continue
@@ -335,7 +339,7 @@ class Controller(object):
         if self.arguments.autoSave:
 
             basePath = "/" if not(len(requester.basePath)) else requester.basePath
-            basePath = basePath.replace(os.path.sep, ".")[0:-1]
+            basePath = basePath.replace(os.path.sep, ".")[:-1]
             fileName = None
             directoryPath = None
 
@@ -462,11 +466,9 @@ class Controller(object):
                     if not self.recursive:
                         pass
                     elif path.response.redirect:
-                        self.addRedirectDirectory(path)
-                        addedToQueue = True
+                        addedToQueue = self.addRedirectDirectory(path)
                     else:
-                        self.addDirectory(path.path)
-                        addedToQueue = True
+                        addedToQueue = self.addDirectory(path.path)
                         
                 self.output.statusReport(path.path, path.response, self.arguments.full_url, addedToQueue)
 
@@ -495,46 +497,45 @@ class Controller(object):
             self.errorLog.flush()
 
     def handleInterrupt(self):
-        with self.threadsLock:
-            self.output.warning("CTRL+C detected: Pausing threads, please wait...")
-            self.fuzzer.pause()
+        self.output.warning("CTRL+C detected: Pausing threads, please wait...")
+        self.fuzzer.pause()
 
-            try:
-                while True:
-                    msg = "[e]xit / [c]ontinue"
+        try:
+            while True:
+                msg = "[e]xit / [c]ontinue"
 
-                    if not self.directories.empty():
-                        msg += " / [n]ext"
+                if not self.directories.empty():
+                    msg += " / [n]ext"
 
-                    if len(self.arguments.urlList) > 1:
-                        msg += " / [s]kip target"
+                if len(self.arguments.urlList) > 1:
+                    msg += " / [s]kip target"
 
-                    self.output.inLine(msg + ": ")
+                self.output.inLine(msg + ": ")
 
-                    option = input()
+                option = input()
 
-                    if option.lower() == "e":
-                        self.exit = True
-                        self.fuzzer.stop()
-                        raise KeyboardInterrupt
+                if option.lower() == "e":
+                    self.exit = True
+                    self.fuzzer.stop()
+                    raise KeyboardInterrupt
 
-                    elif option.lower() == "c":
-                        self.fuzzer.play()
-                        return
+                elif option.lower() == "c":
+                    self.fuzzer.play()
+                    return
 
-                    elif not self.directories.empty() and option.lower() == "n":
-                        self.fuzzer.stop()
-                        return
+                elif not self.directories.empty() and option.lower() == "n":
+                    self.fuzzer.stop()
+                    return
 
-                    elif len(self.arguments.urlList) > 1 and option.lower() == "s":
-                        raise SkipTargetInterrupt
+                elif len(self.arguments.urlList) > 1 and option.lower() == "s":
+                    raise SkipTargetInterrupt
 
-                    else:
-                        continue
+                else:
+                    continue
 
-            except KeyboardInterrupt as SystemExit:
-                self.exit = True
-                raise KeyboardInterrupt
+        except KeyboardInterrupt as SystemExit:
+            self.exit = True
+            raise KeyboardInterrupt
 
     def processPaths(self):
         while True:
@@ -588,8 +589,9 @@ class Controller(object):
             return False
 
     def addRedirectDirectory(self, path):
-        """Resolve the redirect header relative to the current URL and add the
-        path to self.directories if it is a subdirectory of the current URL."""
+        # Resolve the redirect header relative to the current URL and add the
+        # path to self.directories if it is a subdirectory of the current URL
+
         baseUrl = self.currentUrl.rstrip("/") + "/" + self.currentDirectory
 
         baseUrl = baseUrl.rstrip("/") + "/"
@@ -601,7 +603,7 @@ class Controller(object):
             and absoluteUrl != baseUrl
             and absoluteUrl.endswith("/")
         ):
-            dir = absoluteUrl[len(baseUrl) :]
+            dir = absoluteUrl[len(self.currentUrl.rstrip("/")) + 1 :]
 
             if dir in self.doneDirs:
                 return False

@@ -1,7 +1,7 @@
 dirsearch
 =========
 
-Current Release: v0.3.9 (2019.11.26)
+Current Release: v0.4.0 (2020.9.25)
 
 
 Overview
@@ -256,18 +256,24 @@ License: GNU General Public License, version 2
 
 Contributors
 ---------
+Main: @maurosoria and @shelld3v
+
 Special thanks for these people.
 
-- shelld3v
-- mzfr
-- Damian89
-- Bo0oM
-- liamosaur
-- redshark1802
-- SUHAR1K
-- FireFart
-- k2l8m11n2
-- vlohacks
-- r0p0s3c
-- V-Rico
-- russtone
+- @mzfr
+- @V-Rico
+- @Damian89
+- @Bo0oM
+- @liamosaur
+- @redshark1802
+- @SUHAR1K
+- @FireFart
+- @k2l8m11n2
+- @vlohacks
+- @r0p0s3c
+- @russtone
+- @jsav0
+- @serhattsnmz
+- @ricardojba
+- @Anon-Exploiter
+- @ColdFusionX

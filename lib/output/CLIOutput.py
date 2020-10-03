@@ -117,6 +117,9 @@ class CLIOutput(object):
 
             if status == 200:
                 message = Fore.GREEN + message + Style.RESET_ALL
+                
+            elif status == 400:
+                message = Fore.MAGENTA + message + Style.RESET_ALL
 
             elif status == 401:
                 message = Fore.YELLOW + message + Style.RESET_ALL
@@ -135,7 +138,7 @@ class CLIOutput(object):
                 message += "  ->  {0}".format(response.headers["location"])
                 
             if addedToQueue:
-                message += "   (Added to the Queue)"
+                message += "     (Added to queue)"
 
             self.newLine(message)
 
@@ -147,15 +150,16 @@ class CLIOutput(object):
 
             message = "{0:.2f}% - ".format(percentage(index, length))
             
-            if len(allJobs) > 1:
-                message += "Job: {1}/{2} - ".format(currentJob, allJobs)
+
+            if allJobs > 1:
+                message += "Job: {0}/{1} - ".format(currentJob, allJobs)
 
             if self.errors > 0:
                 message += "Errors: {0} - ".format(self.errors)
 
             message += "Last request to: {0}".format(path)
 
-            if len(message) > x:
+            if len(message) >= x:
                 message = message[:x-1]
 
             self.inLine(message)
@@ -173,8 +177,9 @@ class CLIOutput(object):
             self.newLine(message)
 
     def warning(self, reason):
-        message = Style.BRIGHT + Fore.YELLOW + reason + Style.RESET_ALL
-        self.newLine(message)
+        with self.mutex:
+            message = Style.BRIGHT + Fore.YELLOW + reason + Style.RESET_ALL
+            self.newLine(message)
 
     def header(self, text):
         message = Style.BRIGHT + Fore.MAGENTA + text + Style.RESET_ALL
@@ -224,7 +229,7 @@ class CLIOutput(object):
 
         self.newLine(config)
 
-    def target(self, target):
+    def setTarget(self, target):
         self.target = target
 
         config = Style.BRIGHT + Fore.YELLOW
